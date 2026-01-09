@@ -1,0 +1,147 @@
+// Simple queue simulation (no animations)
+
+let simState = {
+  running: false,
+  fastMode: false,
+  paused: false,
+  arrivalRate: 3,
+  serviceTime: 4,
+  numBaristas: 2,
+  currentQueue: 5,
+  avgWait: 2.5,
+  ordersServed: 18,
+  utilization: 85
+};
+
+const arrivalInput = document.getElementById("arrivalRate");
+const serviceInput = document.getElementById("serviceTime");
+const baristaInput = document.getElementById("numBaristas");
+const startBtn = document.getElementById("startBtn");
+const fastBtn = document.getElementById("fastBtn");
+const pauseBtn = document.getElementById("pauseBtn");
+const resetBtn = document.getElementById("resetBtn");
+const errorBox = document.getElementById("errorBox");
+
+const currentQueueEl = document.getElementById("currentQueue");
+const avgWaitEl = document.getElementById("avgWait");
+const ordersServedEl = document.getElementById("ordersServed");
+const utilRateEl = document.getElementById("utilRate");
+const queueCountLabel = document.getElementById("queueCountLabel");
+
+const processBar = document.getElementById("processBar");
+const idleBar = document.getElementById("idleBar");
+
+let timer = null;
+let simTime = 0;
+
+function readInputs() {
+  const arr = parseFloat(arrivalInput.value);
+  const svc = parseFloat(serviceInput.value);
+  const bar = parseInt(baristaInput.value, 10);
+
+  if (isNaN(arr) || isNaN(svc) || isNaN(bar) || arr < 0 || svc <= 0 || bar <= 0) {
+    errorBox.textContent = "Please enter valid positive values.";
+    return null;
+  }
+  errorBox.textContent = "";
+  return { arr, svc, bar };
+}
+
+function startSimulation() {
+  const vals = readInputs();
+  if (!vals) return;
+
+  simState.arrivalRate = vals.arr;
+  simState.serviceTime = vals.svc;
+  simState.numBaristas = vals.bar;
+  simState.running = true;
+  simState.paused = false;
+  simTime = 0;
+
+  simState.currentQueue = 0;
+  simState.ordersServed = 0;
+  simState.avgWait = 0;
+  simState.utilization = 0;
+
+  updateUI();
+
+  clearInterval(timer);
+  timer = setInterval(tick, 1000);
+}
+
+function tick() {
+  if (!simState.running || simState.paused) return;
+
+  const stepMinutes = simState.fastMode ? 5 : 1;
+  for (let i = 0; i < stepMinutes; i++) {
+    advanceMinute();
+  }
+  updateUI();
+}
+
+function advanceMinute() {
+  simTime += 1;
+
+  const arrivals = simState.arrivalRate;
+  simState.currentQueue += arrivals;
+
+  const capacityPerMinute = simState.numBaristas / simState.serviceTime;
+  const canServe = capacityPerMinute;
+  const served = Math.min(simState.currentQueue, canServe);
+
+  simState.currentQueue -= served;
+  simState.ordersServed += served;
+
+  const load = simState.arrivalRate * simState.serviceTime;
+  const rho = simState.numBaristas > 0 ? load / simState.numBaristas : 0;
+  simState.utilization = Math.max(0, Math.min(100, Math.round(rho * 100)));
+
+  const netRate = capacityPerMinute - simState.arrivalRate;
+  if (netRate > 0 && simState.currentQueue > 0) {
+    simState.avgWait = +(simState.currentQueue / netRate).toFixed(1);
+  } else {
+    simState.avgWait = simState.currentQueue > 0 ? 10 : 0;
+  }
+}
+
+function updateUI() {
+  currentQueueEl.textContent = Math.round(simState.currentQueue);
+  avgWaitEl.textContent = simState.avgWait.toFixed(1);
+  ordersServedEl.textContent = Math.round(simState.ordersServed);
+  utilRateEl.textContent = simState.utilization;
+
+  queueCountLabel.textContent =
+    Math.round(simState.currentQueue) + " in line";
+
+  processBar.style.width = simState.utilization + "%";
+  idleBar.style.width = 100 - simState.utilization + "%";
+}
+
+startBtn.addEventListener("click", startSimulation);
+
+fastBtn.addEventListener("click", () => {
+  simState.fastMode = !simState.fastMode;
+  fastBtn.textContent = simState.fastMode ? "Normal" : "Fast";
+});
+
+pauseBtn.addEventListener("click", () => {
+  simState.paused = !simState.paused;
+  pauseBtn.textContent = simState.paused ? "Resume" : "Pause";
+});
+
+resetBtn.addEventListener("click", () => {
+  simState.running = false;
+  simState.paused = false;
+  simState.fastMode = false;
+  clearInterval(timer);
+  fastBtn.textContent = "Fast";
+  pauseBtn.textContent = "Pause";
+
+  simState.currentQueue = 5;
+  simState.avgWait = 2.5;
+  simState.ordersServed = 18;
+  simState.utilization = 85;
+  updateUI();
+});
+
+updateUI();
