@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Coffee Shop Queue Management System</title>
+
+  <!-- Link to CSS in the same folder -->
+  <link rel="stylesheet" type="text/css" href="./style.css">
+</head>
+<body>
+  <header class="top-bar">
+    <h1>COFFEE SHOP QUEUE MANAGEMENT SYSTEM</h1>
+    <nav class="nav-tabs">
+      <button class="tab-btn active">Dashboard</button>
+      <button class="tab-btn active">Simulation</button>
+      <button class="tab-btn">Reports</button>
+      <button class="tab-btn">Settings</button>
+    </nav>
+  </header>
+
+  <main class="main-layout">
+    <!-- Inputs Panel -->
+    <section class="panel inputs-panel">
+      <h2>Inputs</h2>
+
+      <div class="field-group">
+        <label for="arrivalRate">Customer Arrival Rate</label>
+        <div class="field-sub">Customers Per Minute</div>
+        <input type="number" id="arrivalRate" min="0" step="0.1" value="3" />
+      </div>
+
+      <div class="field-group">
+        <label for="serviceTime">Service Time</label>
+        <div class="field-sub">Avg. Time Per Order (min)</div>
+        <input type="number" id="serviceTime" min="0.1" step="0.1" value="4" />
+      </div>
+
+      <div class="field-group">
+        <label for="numBaristas">Number of Baristas</label>
+        <div class="field-sub">Baristas</div>
+        <input type="number" id="numBaristas" min="1" step="1" value="2" />
+      </div>
+
+      <button id="startBtn" class="primary-btn">Start Simulation</button>
+      <div id="errorBox" class="error-box"></div>
+    </section>
+
+    <!-- Simulation Panel -->
+    <section class="panel simulation-panel">
+      <h2>Queue Simulation</h2>
+
+      <div class="order-queue-header">
+        <button class="pill-btn active">Order Queue</button>
+      </div>
+
+      <div class="queue-area">
+        <div class="waiting-area">
+          <div class="waiting-title">Waiting...</div>
+          <div class="queue-icons" id="queueIcons">
+            <span id="queueCountLabel">5 in line</span>
+          </div>
+        </div>
+
+        <div class="counter-area">
+          <div class="counter-title">Counter Area</div>
+          <div class="baristas">
+            <div class="barista">
+              <div class="barista-icon"></div>
+              <div class="barista-label">BARISTA 1</div>
+            </div>
+            <div class="barista">
+              <div class="barista-icon"></div>
+              <div class="barista-label">BARISTA 2</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls-row">
+        <button id="fastBtn" class="secondary-btn">Fast</button>
+        <button id="pauseBtn" class="secondary-btn">Pause</button>
+        <button id="resetBtn" class="secondary-btn danger">Reset</button>
+      </div>
+
+      <div class="timeline">
+        <div class="timeline-row">
+          <span class="timeline-label">Order Process</span>
+          <div class="timeline-bar" id="processBar"></div>
+        </div>
+        <div class="timeline-row">
+          <span class="timeline-label">Idle Time</span>
+          <div class="timeline-bar idle" id="idleBar"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Stats Panel -->
+    <section class="panel stats-panel">
+      <h2>Statistics &amp; Performance</h2>
+
+      <div class="stat-card">
+        <div class="stat-title">Current Queue</div>
+        <div class="stat-main">
+          <span id="currentQueue">5</span>
+        </div>
+        <div class="stat-sub">In Line</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-title">Average Wait Time</div>
+        <div class="stat-main">
+          <span id="avgWait">2.5</span><span class="unit"> min</span>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-title">Orders Served</div>
+        <div class="stat-main">
+          <span id="ordersServed">18</span>
+        </div>
+        <div class="stat-sub">Completed</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-title">Utilization Rate</div>
+        <div class="stat-main">
+          <span id="utilRate">85</span><span class="unit">%</span>
+        </div>
+        <div class="stat-sub">Efficiency</div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Link to JS in the same folder -->
+  <script src="./app.js"></script>
+</body>
+</html>
+Jp
+// Simple queue simulation (no animations)
+
+let simState = {
+  running: false,
+  fastMode: false,
+  paused: false,
+  arrivalRate: 3,
+  serviceTime: 4,
+  numBaristas: 2,
+  currentQueue: 5,
+  avgWait: 2.5,
+  ordersServed: 18,
+  utilization: 85
+};
+
+const arrivalInput = document.getElementById("arrivalRate");
+const serviceInput = document.getElementById("serviceTime");
+const baristaInput = document.getElementById("numBaristas");
+const startBtn = document.getElementById("startBtn");
+const fastBtn = document.getElementById("fastBtn");
+const pauseBtn = document.getElementById("pauseBtn");
+const resetBtn = document.getElementById("resetBtn");
+const errorBox = document.getElementById("errorBox");
+
+const currentQueueEl = document.getElementById("currentQueue");
+const avgWaitEl = document.getElementById("avgWait");
+const ordersServedEl = document.getElementById("ordersServed");
+const utilRateEl = document.getElementById("utilRate");
+const queueCountLabel = document.getElementById("queueCountLabel");
+
+const processBar = document.getElementById("processBar");
+const idleBar = document.getElementById("idleBar");
+
+let timer = null;
+let simTime = 0;
+
+function readInputs() {
+  const arr = parseFloat(arrivalInput.value);
+  const svc = parseFloat(serviceInput.value);
+  const bar = parseInt(baristaInput.value, 10);
+
+  if (isNaN(arr) || isNaN(svc) || isNaN(bar) || arr < 0 || svc <= 0 || bar <= 0) {
+    errorBox.textContent = "Please enter valid positive values.";
+    return null;
+  }
+  errorBox.textContent = "";
+  return { arr, svc, bar };
+}
+
+function startSimulation() {
+  const vals = readInputs();
+  if (!vals) return;
+
+  simState.arrivalRate = vals.arr;
+  simState.serviceTime = vals.svc;
+  simState.numBaristas = vals.bar;
+  simState.running = true;
+  simState.paused = false;
+  simTime = 0;
+
+  simState.currentQueue = 0;
+  simState.ordersServed = 0;
+  simState.avgWait = 0;
+  simState.utilization = 0;
+
+  updateUI();
+
+  clearInterval(timer);
+  timer = setInterval(tick, 1000);
+}
+
+function tick() {
+  if (!simState.running || simState.paused) return;
+
+  const stepMinutes = simState.fastMode ? 5 : 1;
+  for (let i = 0; i < stepMinutes; i++) {
+    advanceMinute();
+  }
+  updateUI();
+}
+
+function advanceMinute() {
+  simTime += 1;
+
+  const arrivals = simState.arrivalRate;
+  simState.currentQueue += arrivals;
+
+  const capacityPerMinute = simState.numBaristas / simState.serviceTime;
+  const canServe = capacityPerMinute;
+  const served = Math.min(simState.currentQueue, canServe);
+
+  simState.currentQueue -= served;
+  simState.ordersServed += served;
+
+  const load = simState.arrivalRate * simState.serviceTime;
+  const rho = simState.numBaristas > 0 ? load / simState.numBaristas : 0;
+  simState.utilization = Math.max(0, Math.min(100, Math.round(rho * 100)));
+
+  const netRate = capacityPerMinute - simState.arrivalRate;
+  if (netRate > 0 && simState.currentQueue > 0) {
+    simState.avgWait = +(simState.currentQueue / netRate).toFixed(1);
+  } else {
+    simState.avgWait = simState.currentQueue > 0 ? 10 : 0;
+  }
+}
+
+function updateUI() {
+  currentQueueEl.textContent = Math.round(simState.currentQueue);
+  avgWaitEl.textContent = simState.avgWait.toFixed(1);
+  ordersServedEl.textContent = Math.round(simState.ordersServed);
+  utilRateEl.textContent = simState.utilization;
+
+  queueCountLabel.textContent =
+    Math.round(simState.currentQueue) + " in line";
+
+  processBar.style.width = simState.utilization + "%";
+  idleBar.style.width = 100 - simState.utilization + "%";
+}
+
+startBtn.addEventListener("click", startSimulation);
+
+fastBtn.addEventListener("click", () => {
+  simState.fastMode = !simState.fastMode;
+  fastBtn.textContent = simState.fastMode ? "Normal" : "Fast";
+});
+
+pauseBtn.addEventListener("click", () => {
+  simState.paused = !simState.paused;
+  pauseBtn.textContent = simState.paused ? "Resume" : "Pause";
+});
+
+resetBtn.addEventListener("click", () => {
+  simState.running = false;
+  simState.paused = false;
+  simState.fastMode = false;
+  clearInterval(timer);
+  fastBtn.textContent = "Fast";
+  pauseBtn.textContent = "Pause";
+
+  simState.currentQueue = 5;
+  simState.avgWait = 2.5;
+  simState.ordersServed = 18;
+  simState.utilization = 85;
+  updateUI();
+});
+
+updateUI();
